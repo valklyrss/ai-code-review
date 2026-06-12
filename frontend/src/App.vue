@@ -43,17 +43,9 @@
     </el-aside>
 
     <el-container class="content-shell">
-      <el-header class="topbar">
-        <div>
-          <div class="topbar-kicker">Independent Review Platform</div>
-          <div class="topbar-title">不用改 GitLab，也能把风险挡在上线前</div>
-        </div>
-        <div class="topbar-chip">OpenAI-compatible</div>
-      </el-header>
       <el-main class="app-main">
         <router-view />
       </el-main>
     </el-container>
   </el-container>
 </template>
-

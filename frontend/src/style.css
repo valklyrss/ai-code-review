@@ -174,45 +174,8 @@ body::before {
   min-width: 0;
 }
 
-.topbar {
-  height: 82px;
-  padding: 12px 18px;
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  background: rgba(255, 255, 255, 0.72);
-  border: 1px solid rgba(255, 255, 255, 0.8);
-  box-shadow: 0 14px 36px rgba(16, 24, 40, 0.08);
-  backdrop-filter: blur(18px);
-}
-
-.topbar-kicker {
-  color: var(--cyan);
-  font-size: 12px;
-  font-weight: 900;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-}
-
-.topbar-title {
-  margin-top: 4px;
-  font-size: 20px;
-  font-weight: 900;
-}
-
-.topbar-chip {
-  padding: 9px 12px;
-  border-radius: 8px;
-  color: #0f766e;
-  font-weight: 800;
-  background: rgba(20, 184, 166, 0.12);
-  border: 1px solid rgba(20, 184, 166, 0.22);
-}
-
 .app-main {
-  height: calc(100vh - 130px);
-  margin-top: 16px;
+  height: calc(100vh - 32px);
   padding: 0;
   overflow: auto;
 }
@@ -410,12 +373,6 @@ body::before {
     display: none;
   }
 
-  .topbar {
-    height: auto;
-    align-items: flex-start;
-    gap: 12px;
-  }
-
   .app-main {
     height: auto;
     overflow: visible;
@@ -425,4 +382,3 @@ body::before {
     grid-template-columns: repeat(2, 1fr);
   }
 }
-
