@@ -23,6 +23,11 @@ export interface Repo {
   scan_interval_seconds?: number
   enabled: number
   owner_email?: string
+  sync_status: string
+  sync_progress: number
+  sync_message?: string
+  sync_started_at?: string
+  sync_finished_at?: string
 }
 
 export const api = {
@@ -31,6 +36,7 @@ export const api = {
   updateRepo: (id: string, data: Partial<Repo>) => http.put<unknown, Repo>(`/repos/${id}`, data),
   deleteRepo: (id: string) => http.delete(`/repos/${id}`),
   testRepo: (id: string) => http.post(`/repos/${id}/test`),
+  syncRepo: (id: string) => http.post(`/repos/${id}/sync`),
   scanRepo: (id: string) => http.post(`/repos/${id}/scan`),
   tasks: (params: any) => http.get('/tasks', { params }),
   task: (id: string) => http.get(`/tasks/${id}`),

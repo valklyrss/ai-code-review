@@ -18,6 +18,7 @@ pub fn routes(state: AppState) -> Router {
         .route("/api/repos", get(repo_api::list_repos).post(repo_api::create_repo))
         .route("/api/repos/:id", axum::routing::put(repo_api::update_repo).delete(repo_api::delete_repo))
         .route("/api/repos/:id/test", post(repo_api::test_repo))
+        .route("/api/repos/:id/sync", post(repo_api::sync_repo))
         .route("/api/repos/:id/scan", post(repo_api::scan_repo_now))
         .route("/api/tasks", get(task_api::list_tasks))
         .route("/api/tasks/:id", get(task_api::get_task))

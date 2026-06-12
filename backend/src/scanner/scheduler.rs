@@ -1,4 +1,4 @@
-use crate::{api::AppState, error::AppResult, gitx::command::ls_remote_heads, model::repo::RepoConfig, util::time::now};
+use crate::{api::AppState, error::AppResult, gitx::{command::ls_remote_heads, mirror}, model::repo::RepoConfig, util::time::now};
 use sqlx::Row;
 use tokio::time::{sleep, Duration};
 use uuid::Uuid;
@@ -27,6 +27,8 @@ pub async fn scan_all(state: &AppState) -> AppResult<()> {
 
 pub async fn scan_repo(state: &AppState, repo: &RepoConfig) -> AppResult<()> {
     let branches = ls_remote_heads(&state.config.git.command_path, &repo.repo_url, state.config.scanner.git_command_timeout_seconds).await?;
+    let repo_path = mirror::ensure_mirror_repo(&state.config, repo).await?;
+    mirror::fetch_mirror_repo(&state.config, &repo_path).await?;
     for branch in branches.into_iter().filter(|b| branch_matches(repo.branch_pattern.as_deref().unwrap_or("*"), &b.branch_name)) {
         let row = sqlx::query("SELECT id,last_commit_id FROM repo_branch_state WHERE repo_id=? AND branch_name=?")
             .bind(&repo.id).bind(&branch.branch_name).fetch_optional(&state.db).await?;
@@ -58,4 +60,3 @@ pub async fn scan_repo(state: &AppState, repo: &RepoConfig) -> AppResult<()> {
 fn branch_matches(pattern: &str, branch: &str) -> bool {
     pattern.split(',').map(str::trim).any(|p| p == "*" || p == branch || (p.ends_with('*') && branch.starts_with(&p[..p.len() - 1])))
 }
-

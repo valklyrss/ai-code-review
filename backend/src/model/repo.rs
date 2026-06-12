@@ -13,6 +13,11 @@ pub struct RepoConfig {
     pub scan_interval_seconds: Option<i64>,
     pub enabled: i64,
     pub owner_email: Option<String>,
+    pub sync_status: String,
+    pub sync_progress: i64,
+    pub sync_message: Option<String>,
+    pub sync_started_at: Option<String>,
+    pub sync_finished_at: Option<String>,
     pub created_at: String,
     pub updated_at: String,
 }
@@ -35,4 +40,3 @@ pub struct RemoteBranch {
     pub branch_name: String,
     pub commit_id: String,
 }
-
