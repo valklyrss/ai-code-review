@@ -33,11 +33,14 @@ export interface Repo {
 export const api = {
   repos: () => http.get<unknown, Repo[]>('/repos'),
   createRepo: (data: Partial<Repo>) => http.post<unknown, Repo>('/repos', data),
+  repo: (id: string) => http.get<unknown, Repo>(`/repos/${id}`),
   updateRepo: (id: string, data: Partial<Repo>) => http.put<unknown, Repo>(`/repos/${id}`, data),
   deleteRepo: (id: string) => http.delete(`/repos/${id}`),
   testRepo: (id: string) => http.post(`/repos/${id}/test`),
   syncRepo: (id: string) => http.post(`/repos/${id}/sync`),
   scanRepo: (id: string) => http.post(`/repos/${id}/scan`),
+  repoCommits: (id: string, params: any) => http.get(`/repos/${id}/commits`, { params }),
+  scanCommit: (id: string, commitId: string, data: any) => http.post(`/repos/${id}/commits/${commitId}/scan`, data),
   tasks: (params: any) => http.get('/tasks', { params }),
   task: (id: string) => http.get(`/tasks/${id}`),
   retryTask: (id: string) => http.post(`/tasks/${id}/retry`),
@@ -46,4 +49,3 @@ export const api = {
   health: () => http.get('/system/health'),
   configSummary: () => http.get('/system/config-summary')
 }
-

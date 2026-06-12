@@ -1,4 +1,5 @@
 use crate::{error::{AppError, AppResult}, model::repo::RemoteBranch, util::mask::mask_url};
+use serde::Serialize;
 use std::{path::Path, time::Duration};
 use tokio::{process::Command, time::timeout};
 
@@ -56,6 +57,23 @@ pub async fn diff_file(git_path: &str, repo_path: &Path, old_commit: &str, new_c
 #[derive(Debug, Clone)]
 pub struct GitCommit { pub commit_id: String, pub author_name: String, pub author_email: String, pub commit_time: String, pub commit_msg: String }
 
+#[derive(Debug, Clone, Serialize)]
+pub struct LocalBranch {
+    pub branch_name: String,
+    pub commit_id: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct GraphCommit {
+    pub graph: String,
+    pub commit_id: String,
+    pub short_id: String,
+    pub author_name: String,
+    pub author_email: String,
+    pub commit_time: String,
+    pub subject: String,
+}
+
 pub async fn log_between(git_path: &str, repo_path: &Path, old_commit: &str, new_commit: &str, timeout_seconds: u64) -> AppResult<Vec<GitCommit>> {
     let range = format!("{old_commit}..{new_commit}");
     let out = run_git(git_path, &["log", "--format=%H%x1f%an%x1f%ae%x1f%ai%x1f%s", &range], Some(repo_path), timeout_seconds).await?;
@@ -76,4 +94,48 @@ pub async fn is_ancestor(git_path: &str, repo_path: &Path, old_commit: &str, new
 pub async fn merge_base(git_path: &str, repo_path: &Path, old_commit: &str, new_commit: &str, timeout_seconds: u64) -> AppResult<String> {
     let out = run_git(git_path, &["merge-base", old_commit, new_commit], Some(repo_path), timeout_seconds).await?;
     Ok(out.stdout.trim().to_string())
+}
+
+pub async fn local_heads(git_path: &str, repo_path: &Path, timeout_seconds: u64) -> AppResult<Vec<LocalBranch>> {
+    let out = run_git(git_path, &["for-each-ref", "--format=%(refname:strip=2)%x1f%(objectname)", "refs/heads"], Some(repo_path), timeout_seconds).await?;
+    Ok(out.stdout.lines().filter_map(|line| {
+        let parts: Vec<&str> = line.split('\x1f').collect();
+        if parts.len() < 2 { return None; }
+        Some(LocalBranch { branch_name: parts[0].to_string(), commit_id: parts[1].to_string() })
+    }).collect())
+}
+
+pub async fn log_graph(git_path: &str, repo_path: &Path, branch: &str, limit: usize, timeout_seconds: u64) -> AppResult<Vec<GraphCommit>> {
+    let max_count = format!("--max-count={}", limit.clamp(1, 500));
+    let reference = format!("refs/heads/{branch}");
+    let out = run_git(
+        git_path,
+        &["log", "--graph", "--date=iso-strict", "--pretty=format:%H%x1f%h%x1f%an%x1f%ae%x1f%ad%x1f%s", &max_count, &reference],
+        Some(repo_path),
+        timeout_seconds,
+    ).await?;
+    Ok(out.stdout.lines().filter_map(parse_graph_commit_line).collect())
+}
+
+fn parse_graph_commit_line(line: &str) -> Option<GraphCommit> {
+    let hash_start = line.find(|c: char| c.is_ascii_hexdigit())?;
+    let graph = line[..hash_start].to_string();
+    let rest = &line[hash_start..];
+    let parts: Vec<&str> = rest.split('\x1f').collect();
+    if parts.len() < 6 { return None; }
+    Some(GraphCommit {
+        graph,
+        commit_id: parts[0].to_string(),
+        short_id: parts[1].to_string(),
+        author_name: parts[2].to_string(),
+        author_email: parts[3].to_string(),
+        commit_time: parts[4].to_string(),
+        subject: parts[5].to_string(),
+    })
+}
+
+pub async fn first_parent(git_path: &str, repo_path: &Path, commit: &str, timeout_seconds: u64) -> AppResult<Option<String>> {
+    let out = run_git(git_path, &["rev-list", "--parents", "-n", "1", commit], Some(repo_path), timeout_seconds).await?;
+    let parts: Vec<&str> = out.stdout.split_whitespace().collect();
+    Ok(parts.get(1).map(|s| s.to_string()))
 }

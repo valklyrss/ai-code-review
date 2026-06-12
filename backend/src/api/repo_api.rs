@@ -1,11 +1,16 @@
-use crate::{api::AppState, error::{AppError, AppResult}, gitx::{command::ls_remote_heads, mirror}, model::repo::{RepoConfig, RepoInput}, scanner::scheduler, util::time::now};
-use axum::{extract::{Path, State}, Json};
+use crate::{api::AppState, error::{AppError, AppResult}, gitx::{command::{self, ls_remote_heads}, mirror}, model::{repo::{RepoConfig, RepoInput}, task::ReviewTask}, scanner::scheduler, util::time::now};
+use axum::{extract::{Path, Query, State}, Json};
+use serde::Deserialize;
 use serde_json::json;
 use uuid::Uuid;
 
 pub async fn list_repos(State(state): State<AppState>) -> AppResult<Json<Vec<RepoConfig>>> {
     let repos = sqlx::query_as::<_, RepoConfig>("SELECT * FROM repo_config ORDER BY created_at DESC").fetch_all(&state.db).await?;
     Ok(Json(repos))
+}
+
+pub async fn get_repo_detail(State(state): State<AppState>, Path(id): Path<String>) -> AppResult<Json<RepoConfig>> {
+    Ok(Json(get_repo(&state, &id).await?))
 }
 
 pub async fn create_repo(State(state): State<AppState>, Json(input): Json<RepoInput>) -> AppResult<Json<RepoConfig>> {
@@ -54,6 +59,72 @@ pub async fn scan_repo_now(State(state): State<AppState>, Path(id): Path<String>
     Ok(Json(json!({"ok": true})))
 }
 
+#[derive(Debug, Deserialize)]
+pub struct CommitQuery {
+    branch: Option<String>,
+    limit: Option<usize>,
+}
+
+pub async fn list_commits(State(state): State<AppState>, Path(id): Path<String>, Query(q): Query<CommitQuery>) -> AppResult<Json<serde_json::Value>> {
+    let repo = get_repo(&state, &id).await?;
+    ensure_synced(&repo)?;
+    let repo_path = mirror::repo_local_path(&state.config, &repo);
+    if !repo_path.exists() {
+        return Err(AppError::BadRequest("本地仓库不存在，请先拉取仓库".into()));
+    }
+    let branches = command::local_heads(&state.config.git.command_path, &repo_path, state.config.scanner.git_command_timeout_seconds).await?;
+    let branch = q.branch.or_else(|| branches.first().map(|b| b.branch_name.clone())).unwrap_or_default();
+    let commits = if branch.is_empty() {
+        vec![]
+    } else {
+        command::log_graph(&state.config.git.command_path, &repo_path, &branch, q.limit.unwrap_or(100), state.config.scanner.git_command_timeout_seconds).await?
+    };
+    let commit_ids: Vec<String> = commits.iter().map(|c| c.commit_id.clone()).collect();
+    let tasks = if commit_ids.is_empty() {
+        vec![]
+    } else {
+        let placeholders = std::iter::repeat("?").take(commit_ids.len()).collect::<Vec<_>>().join(",");
+        let sql = format!("SELECT * FROM review_task WHERE repo_id=? AND new_commit_id IN ({placeholders}) ORDER BY created_at DESC");
+        let mut query = sqlx::query_as::<_, ReviewTask>(&sql).bind(&repo.id);
+        for commit_id in &commit_ids {
+            query = query.bind(commit_id);
+        }
+        query.fetch_all(&state.db).await?
+    };
+    Ok(Json(json!({"repo": repo, "branches": branches, "selected_branch": branch, "commits": commits, "tasks": tasks})))
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ScanCommitInput {
+    branch: Option<String>,
+}
+
+pub async fn scan_commit(
+    State(state): State<AppState>,
+    Path((id, commit_id)): Path<(String, String)>,
+    Json(input): Json<ScanCommitInput>,
+) -> AppResult<Json<serde_json::Value>> {
+    let repo = get_repo(&state, &id).await?;
+    ensure_synced(&repo)?;
+    let repo_path = mirror::repo_local_path(&state.config, &repo);
+    let parent = command::first_parent(&state.config.git.command_path, &repo_path, &commit_id, state.config.scanner.git_command_timeout_seconds).await?
+        .ok_or_else(|| AppError::BadRequest("根提交没有父提交，V1 暂不支持直接审核根提交".into()))?;
+    let branch_name = input.branch.unwrap_or_else(|| "manual".to_string());
+    let task_id = Uuid::new_v4().to_string();
+    sqlx::query("INSERT INTO review_task(id,repo_id,repo_name,branch_name,old_commit_id,new_commit_id,status,created_at) VALUES(?,?,?,?,?,?,?,?)")
+        .bind(&task_id)
+        .bind(&repo.id)
+        .bind(&repo.repo_name)
+        .bind(&branch_name)
+        .bind(&parent)
+        .bind(&commit_id)
+        .bind("WAITING")
+        .bind(now())
+        .execute(&state.db)
+        .await?;
+    Ok(Json(json!({"ok": true, "task_id": task_id})))
+}
+
 async fn get_repo(state: &AppState, id: &str) -> AppResult<RepoConfig> {
     Ok(sqlx::query_as::<_, RepoConfig>("SELECT * FROM repo_config WHERE id=?").bind(id).fetch_one(&state.db).await?)
 }
@@ -61,6 +132,14 @@ async fn get_repo(state: &AppState, id: &str) -> AppResult<RepoConfig> {
 fn ensure_not_syncing(repo: &RepoConfig) -> AppResult<()> {
     if repo.sync_status == "SYNCING" || repo.sync_status == "PENDING" {
         return Err(AppError::BadRequest("仓库正在拉取中，请等待完成后再操作".into()));
+    }
+    Ok(())
+}
+
+fn ensure_synced(repo: &RepoConfig) -> AppResult<()> {
+    ensure_not_syncing(repo)?;
+    if repo.sync_status != "SUCCESS" {
+        return Err(AppError::BadRequest("仓库尚未拉取完成，请先拉取仓库".into()));
     }
     Ok(())
 }

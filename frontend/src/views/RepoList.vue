@@ -30,8 +30,9 @@
           <el-tag :type="row.enabled ? 'success' : 'info'">{{ row.enabled ? '是' : '否' }}</el-tag>
         </template>
       </el-table-column>
-      <el-table-column label="操作" width="350">
+      <el-table-column label="操作" width="410">
         <template #default="{ row }">
+          <el-button size="small" :disabled="isSyncing(row) || row.sync_status !== 'SUCCESS'" @click="$router.push('/repos/' + row.id)">详情</el-button>
           <el-button size="small" :disabled="isSyncing(row)" @click="openEdit(row)">编辑</el-button>
           <el-button size="small" :disabled="isSyncing(row)" @click="test(row)">测试</el-button>
           <el-button size="small" :disabled="isSyncing(row)" @click="sync(row)">拉取</el-button>
@@ -170,4 +171,3 @@ onUnmounted(() => {
   line-height: 1.3;
 }
 </style>
-
