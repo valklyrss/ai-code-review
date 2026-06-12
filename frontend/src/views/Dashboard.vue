@@ -25,27 +25,27 @@
     </section>
 
     <div class="metric-grid">
-      <div class="metric-card cyan">
+      <div class="metric-card cyan clickable" @click="$router.push('/repos')">
         <span>仓库总数</span>
         <strong>{{ repos.length }}</strong>
         <em>已接入旁路审核</em>
       </div>
-      <div class="metric-card green">
+      <div class="metric-card green clickable" @click="$router.push('/tasks?date=today')">
         <span>今日任务</span>
         <strong>{{ todayTasks }}</strong>
         <em>自动与手动触发</em>
       </div>
-      <div class="metric-card orange">
+      <div class="metric-card orange clickable" @click="$router.push('/issues?date=today')">
         <span>今日问题</span>
         <strong>{{ todayIssues }}</strong>
         <em>待确认与待修复</em>
       </div>
-      <div class="metric-card red">
+      <div class="metric-card red clickable" @click="$router.push('/issues?level=HIGH')">
         <span>HIGH</span>
         <strong>{{ high }}</strong>
         <em>建议优先处理</em>
       </div>
-      <div class="metric-card blue">
+      <div class="metric-card blue clickable" @click="$router.push('/issues?level=CRITICAL')">
         <span>CRITICAL</span>
         <strong>{{ critical }}</strong>
         <em>生产事故风险</em>
@@ -329,6 +329,20 @@ onMounted(async () => {
   background: rgba(255,255,255,0.78);
   border: 1px solid rgba(255,255,255,0.86);
   box-shadow: 0 14px 34px rgba(16, 24, 40, 0.08);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.metric-card.clickable {
+  cursor: pointer;
+}
+
+.metric-card.clickable:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 22px 52px rgba(16, 24, 40, 0.14);
+}
+
+.metric-card.clickable:active {
+  transform: translateY(-2px);
 }
 
 .metric-card::before {

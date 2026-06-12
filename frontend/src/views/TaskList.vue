@@ -27,15 +27,22 @@
 </template>
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
+import { useRoute } from 'vue-router'
 import { api } from '../api'
 import StatusTag from '../components/StatusTag.vue'
 import RiskTag from '../components/RiskTag.vue'
 import { formatTime } from '../utils/time'
 const items = ref<any[]>([]); const total = ref(0); const loading = ref(false); const page = ref(1)
 const filters = reactive<any>({})
+const route = useRoute()
 const short = (s?: string) => s ? s.slice(0, 8) : '-'
 async function load() { loading.value = true; try { const res: any = await api.tasks({ ...filters, page: page.value, page_size: 20 }); items.value = res.items; total.value = res.total } finally { loading.value = false } }
 async function retry(row: any) { await api.retryTask(row.id); await load() }
 function changePage(p: number) { page.value = p; load() }
-onMounted(load)
+onMounted(() => {
+  if (route.query.status) filters.status = route.query.status
+  if (route.query.result) filters.result = route.query.result
+  if (route.query.risk_level) filters.risk_level = route.query.risk_level
+  load()
+})
 </script>

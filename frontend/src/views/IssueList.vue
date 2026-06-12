@@ -20,13 +20,20 @@
 </template>
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
+import { useRoute } from 'vue-router'
 import { api } from '../api'
 import RiskTag from '../components/RiskTag.vue'
 const statuses = ['TODO','CONFIRMED','FIXED','FALSE_POSITIVE','IGNORED']
 const filters = reactive<any>({})
 const items = ref<any[]>([]); const total = ref(0); const page = ref(1); const loading = ref(false)
+const route = useRoute()
 async function load() { loading.value = true; try { const res: any = await api.issues({ ...filters, page: page.value, page_size: 20 }); items.value = res.items; total.value = res.total } finally { loading.value = false } }
 async function update(row: any, status: string) { await api.updateIssueStatus(row.id, status) }
 function changePage(p: number) { page.value = p; load() }
-onMounted(load)
+onMounted(() => {
+  if (route.query.level) filters.level = route.query.level
+  if (route.query.status) filters.status = route.query.status
+  if (route.query.repo_id) filters.repo_id = route.query.repo_id
+  load()
+})
 </script>
