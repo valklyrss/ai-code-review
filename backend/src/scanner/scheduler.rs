@@ -26,9 +26,11 @@ pub async fn scan_all(state: &AppState) -> AppResult<()> {
 }
 
 pub async fn scan_repo(state: &AppState, repo: &RepoConfig) -> AppResult<()> {
+    tracing::info!(repo_id=%repo.id, repo_name=%repo.repo_name, "scanning repository remote heads");
     let branches = ls_remote_heads(&state.config.git.command_path, &repo.repo_url, state.config.scanner.git_command_timeout_seconds).await?;
     let repo_path = mirror::ensure_mirror_repo(&state.config, repo).await?;
     mirror::fetch_mirror_repo(&state.config, &repo_path).await?;
+    tracing::info!(repo_id=%repo.id, branch_count=branches.len(), "remote heads loaded");
     for branch in branches.into_iter().filter(|b| branch_matches(repo.branch_pattern.as_deref().unwrap_or("*"), &b.branch_name)) {
         let row = sqlx::query("SELECT id,last_commit_id FROM repo_branch_state WHERE repo_id=? AND branch_name=?")
             .bind(&repo.id).bind(&branch.branch_name).fetch_optional(&state.db).await?;
@@ -42,6 +44,15 @@ pub async fn scan_repo(state: &AppState, repo: &RepoConfig) -> AppResult<()> {
             }
             if let Some(old_commit) = old {
                 let task_id = Uuid::new_v4().to_string();
+                tracing::info!(
+                    repo_id=%repo.id,
+                    repo_name=%repo.repo_name,
+                    branch=%branch.branch_name,
+                    old_commit=%old_commit,
+                    new_commit=%branch.commit_id,
+                    task_id=%task_id,
+                    "detected new commit and created review task"
+                );
                 sqlx::query("INSERT INTO review_task(id,repo_id,repo_name,branch_name,old_commit_id,new_commit_id,status,created_at) VALUES(?,?,?,?,?,?,?,?)")
                     .bind(&task_id).bind(&repo.id).bind(&repo.repo_name).bind(&branch.branch_name).bind(&old_commit).bind(&branch.commit_id).bind("WAITING").bind(&t)
                     .execute(&state.db).await?;
@@ -49,6 +60,7 @@ pub async fn scan_repo(state: &AppState, repo: &RepoConfig) -> AppResult<()> {
             sqlx::query("UPDATE repo_branch_state SET last_commit_id=?,last_scan_time=?,updated_at=? WHERE repo_id=? AND branch_name=?")
                 .bind(&branch.commit_id).bind(&t).bind(&t).bind(&repo.id).bind(&branch.branch_name).execute(&state.db).await?;
         } else {
+            tracing::info!(repo_id=%repo.id, branch=%branch.branch_name, commit=%branch.commit_id, "recorded branch baseline");
             sqlx::query("INSERT INTO repo_branch_state(id,repo_id,branch_name,last_commit_id,last_scan_time,updated_at) VALUES(?,?,?,?,?,?)")
                 .bind(Uuid::new_v4().to_string()).bind(&repo.id).bind(&branch.branch_name).bind(&branch.commit_id).bind(&t).bind(&t)
                 .execute(&state.db).await?;

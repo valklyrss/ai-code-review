@@ -79,6 +79,14 @@ pub async fn list_commits(State(state): State<AppState>, Path(id): Path<String>,
     } else {
         command::log_graph(&state.config.git.command_path, &repo_path, &branch, q.limit.unwrap_or(100), state.config.scanner.git_command_timeout_seconds).await?
     };
+    tracing::info!(
+        repo_id=%repo.id,
+        repo_name=%repo.repo_name,
+        branch=%branch,
+        branch_count=branches.len(),
+        commit_count=commits.len(),
+        "loaded repository commit graph"
+    );
     let commit_ids: Vec<String> = commits.iter().map(|c| c.commit_id.clone()).collect();
     let tasks = if commit_ids.is_empty() {
         vec![]
@@ -111,6 +119,15 @@ pub async fn scan_commit(
         .ok_or_else(|| AppError::BadRequest("根提交没有父提交，V1 暂不支持直接审核根提交".into()))?;
     let branch_name = input.branch.unwrap_or_else(|| "manual".to_string());
     let task_id = Uuid::new_v4().to_string();
+    tracing::info!(
+        repo_id=%repo.id,
+        repo_name=%repo.repo_name,
+        branch=%branch_name,
+        old_commit=%parent,
+        new_commit=%commit_id,
+        task_id=%task_id,
+        "created manual commit review task"
+    );
     sqlx::query("INSERT INTO review_task(id,repo_id,repo_name,branch_name,old_commit_id,new_commit_id,status,created_at) VALUES(?,?,?,?,?,?,?,?)")
         .bind(&task_id)
         .bind(&repo.id)
@@ -156,14 +173,17 @@ fn start_repo_sync(state: AppState, repo_id: String) {
 async fn sync_repo_mirror(state: &AppState, repo_id: &str) -> AppResult<()> {
     set_sync_status(state, repo_id, "PENDING", 5, "等待拉取仓库", false).await?;
     let repo = get_repo(state, repo_id).await?;
+    tracing::info!(repo_id=%repo.id, repo_name=%repo.repo_name, "starting repository mirror sync");
 
     set_sync_status(state, repo_id, "SYNCING", 20, "正在执行 git clone --mirror / 检查本地 mirror", false).await?;
     let repo_path = mirror::ensure_mirror_repo(&state.config, &repo).await?;
+    tracing::info!(repo_id=%repo.id, repo_path=%repo_path.display(), "mirror repository is ready");
 
     set_sync_status(state, repo_id, "SYNCING", 75, "正在执行 git fetch --prune", false).await?;
     mirror::fetch_mirror_repo(&state.config, &repo_path).await?;
 
     set_sync_status(state, repo_id, "SUCCESS", 100, "仓库拉取完成", true).await?;
+    tracing::info!(repo_id=%repo.id, repo_name=%repo.repo_name, "repository mirror sync finished");
     Ok(())
 }
 

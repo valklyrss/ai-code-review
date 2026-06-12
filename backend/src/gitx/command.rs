@@ -97,11 +97,10 @@ pub async fn merge_base(git_path: &str, repo_path: &Path, old_commit: &str, new_
 }
 
 pub async fn local_heads(git_path: &str, repo_path: &Path, timeout_seconds: u64) -> AppResult<Vec<LocalBranch>> {
-    let out = run_git(git_path, &["for-each-ref", "--format=%(refname:strip=2)%x1f%(objectname)", "refs/heads"], Some(repo_path), timeout_seconds).await?;
+    let out = run_git(git_path, &["for-each-ref", "--format=%(refname:strip=2)%09%(objectname)", "refs/heads"], Some(repo_path), timeout_seconds).await?;
     Ok(out.stdout.lines().filter_map(|line| {
-        let parts: Vec<&str> = line.split('\x1f').collect();
-        if parts.len() < 2 { return None; }
-        Some(LocalBranch { branch_name: parts[0].to_string(), commit_id: parts[1].to_string() })
+        let (branch_name, commit_id) = line.split_once('\t')?;
+        Some(LocalBranch { branch_name: branch_name.to_string(), commit_id: commit_id.to_string() })
     }).collect())
 }
 
