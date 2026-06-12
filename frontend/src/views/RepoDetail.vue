@@ -34,7 +34,9 @@
           <div class="muted">{{ row.author_email }}</div>
         </template>
       </el-table-column>
-      <el-table-column prop="commit_time" label="提交时间" min-width="190" />
+      <el-table-column label="提交时间" min-width="150">
+        <template #default="{ row }">{{ formatTime(row.commit_time) }}</template>
+      </el-table-column>
       <el-table-column label="扫描记录" min-width="220">
         <template #default="{ row }">
           <div v-if="tasksByCommit[row.commit_id]?.length" class="task-list">
@@ -65,6 +67,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { api, Repo } from '../api'
+import { formatTime } from '../utils/time'
 
 interface Branch {
   branch_name: string

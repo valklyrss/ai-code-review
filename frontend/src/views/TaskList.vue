@@ -9,7 +9,7 @@
   </div>
   <div class="panel">
     <el-table :data="items" v-loading="loading">
-      <el-table-column prop="created_at" label="创建时间" min-width="170" />
+      <el-table-column label="创建时间" min-width="150"><template #default="{row}">{{ formatTime(row.created_at) }}</template></el-table-column>
       <el-table-column prop="repo_name" label="仓库" />
       <el-table-column prop="branch_name" label="分支" />
       <el-table-column label="old"><template #default="{row}">{{ short(row.old_commit_id) }}</template></el-table-column>
@@ -30,6 +30,7 @@ import { onMounted, reactive, ref } from 'vue'
 import { api } from '../api'
 import StatusTag from '../components/StatusTag.vue'
 import RiskTag from '../components/RiskTag.vue'
+import { formatTime } from '../utils/time'
 const items = ref<any[]>([]); const total = ref(0); const loading = ref(false); const page = ref(1)
 const filters = reactive<any>({})
 const short = (s?: string) => s ? s.slice(0, 8) : '-'

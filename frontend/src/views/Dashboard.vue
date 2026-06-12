@@ -28,7 +28,9 @@
       </div>
     </div>
     <el-table :data="tasks" v-loading="loading">
-      <el-table-column prop="created_at" label="创建时间" min-width="170" />
+      <el-table-column label="创建时间" min-width="150">
+        <template #default="{ row }">{{ formatTime(row.created_at) }}</template>
+      </el-table-column>
       <el-table-column prop="repo_name" label="仓库" />
       <el-table-column prop="branch_name" label="分支" />
       <el-table-column label="状态"><template #default="{row}"><StatusTag :value="row.status" /></template></el-table-column>
@@ -43,6 +45,7 @@ import { onMounted, ref } from 'vue'
 import { api, Repo } from '../api'
 import StatusTag from '../components/StatusTag.vue'
 import RiskTag from '../components/RiskTag.vue'
+import { formatTime } from '../utils/time'
 
 const repos = ref<Repo[]>([])
 const tasks = ref<any[]>([])
