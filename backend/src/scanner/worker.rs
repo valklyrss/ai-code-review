@@ -60,7 +60,7 @@ pub async fn execute_task(state: &AppState, task: &ReviewTask) -> AppResult<()> 
     }
 
     let files = command::diff_name_status(&state.config.git.command_path, &repo_path, &base, &task.new_commit_id, state.config.scanner.git_command_timeout_seconds).await?;
-    let ai = OpenAiCompatibleClient::new(state.config.clone())?;
+    let ai = OpenAiCompatibleClient::from_db(&state.db, state.config.clone()).await?;
     let mut total_diff_lines = 0usize;
     let mut issue_count = 0i64;
     let mut high_count = 0i64;

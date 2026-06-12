@@ -5,6 +5,7 @@ import RepoDetail from './views/RepoDetail.vue'
 import TaskList from './views/TaskList.vue'
 import TaskDetail from './views/TaskDetail.vue'
 import IssueList from './views/IssueList.vue'
+import AiSettings from './views/AiSettings.vue'
 
 export default createRouter({
   history: createWebHistory(),
@@ -14,6 +15,7 @@ export default createRouter({
     { path: '/repos/:id', component: RepoDetail },
     { path: '/tasks', component: TaskList },
     { path: '/tasks/:id', component: TaskDetail },
-    { path: '/issues', component: IssueList }
+    { path: '/issues', component: IssueList },
+    { path: '/settings/ai', component: AiSettings }
   ]
 })

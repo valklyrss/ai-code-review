@@ -46,6 +46,8 @@ export const api = {
   retryTask: (id: string) => http.post(`/tasks/${id}/retry`),
   issues: (params: any) => http.get('/issues', { params }),
   updateIssueStatus: (id: string, status: string) => http.put(`/issues/${id}/status`, { status }),
+  aiSettings: () => http.get('/ai/settings'),
+  saveAiSettings: (data: any) => http.put('/ai/settings', data),
   health: () => http.get('/system/health'),
   configSummary: () => http.get('/system/config-summary')
 }

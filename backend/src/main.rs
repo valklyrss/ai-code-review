@@ -27,6 +27,7 @@ async fn main() -> anyhow::Result<()> {
     config.ensure_dirs()?;
     let pool = db::connect(&config.database.url).await?;
     let state = AppState { config: config.clone(), db: pool };
+    api::ai_api::seed_from_config(&state).await?;
 
     scanner::scheduler::start(state.clone());
     scanner::worker::start(state.clone());

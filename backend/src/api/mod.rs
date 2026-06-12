@@ -1,3 +1,4 @@
+pub mod ai_api;
 pub mod issue_api;
 pub mod repo_api;
 pub mod system_api;
@@ -27,6 +28,7 @@ pub fn routes(state: AppState) -> Router {
         .route("/api/tasks/:id/retry", post(task_api::retry_task))
         .route("/api/issues", get(issue_api::list_issues))
         .route("/api/issues/:id/status", axum::routing::put(issue_api::update_status))
+        .route("/api/ai/settings", get(ai_api::get_setting).put(ai_api::save_setting))
         .route("/api/system/health", get(system_api::health))
         .route("/api/system/config-summary", get(system_api::config_summary))
         .with_state(state)
