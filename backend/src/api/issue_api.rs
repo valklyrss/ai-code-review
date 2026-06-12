@@ -34,7 +34,7 @@ pub async fn list_issues(State(state): State<AppState>, Query(q): Query<IssueQue
         count_query = count_query.bind(v);
     }
     let page = q.page.unwrap_or(1).max(1);
-    let size = q.page_size.unwrap_or(20).clamp(1, 100);
+    let size = q.page_size.unwrap_or(20).clamp(1, 1000);
     let items = query.bind(size).bind((page - 1) * size).fetch_all(&state.db).await?;
     let total: i64 = count_query.fetch_one(&state.db).await?.try_get("total")?;
     Ok(Json(Page { items, total }))
@@ -44,4 +44,3 @@ pub async fn update_status(State(state): State<AppState>, Path(id): Path<String>
     sqlx::query("UPDATE review_issue SET status=? WHERE id=?").bind(body.status).bind(id).execute(&state.db).await?;
     Ok(Json(json!({"ok": true})))
 }
-

@@ -19,7 +19,7 @@
         <div class="radar-sweep"></div>
         <div class="radar-core">
           <span>HIGH+</span>
-          <strong>{{ high + critical }}</strong>
+          <strong>{{ activeHigh + activeCritical }}</strong>
         </div>
       </div>
     </section>
@@ -36,19 +36,19 @@
         <em>自动与手动触发</em>
       </div>
       <div class="metric-card orange clickable" @click="$router.push('/issues?date=today')">
-        <span>今日问题</span>
+        <span>今日新增问题</span>
         <strong>{{ todayIssues }}</strong>
-        <em>待确认与待修复</em>
+        <em>今天扫描发现</em>
       </div>
-      <div class="metric-card red clickable" @click="$router.push('/issues?level=HIGH')">
-        <span>HIGH</span>
-        <strong>{{ high }}</strong>
-        <em>建议优先处理</em>
+      <div class="metric-card red clickable" @click="$router.push('/issues?status=TODO')">
+        <span>当前待处理</span>
+        <strong>{{ activeIssues }}</strong>
+        <em>排除已修复、误报、忽略</em>
       </div>
       <div class="metric-card blue clickable" @click="$router.push('/issues?level=CRITICAL')">
-        <span>CRITICAL</span>
-        <strong>{{ critical }}</strong>
-        <em>生产事故风险</em>
+        <span>HIGH+ 待处理</span>
+        <strong>{{ activeHigh + activeCritical }}</strong>
+        <em>需要优先确认</em>
       </div>
     </div>
 
@@ -145,8 +145,9 @@ const tasks = ref<any[]>([])
 const loading = ref(false)
 const todayTasks = ref(0)
 const todayIssues = ref(0)
-const high = ref(0)
-const critical = ref(0)
+const activeIssues = ref(0)
+const activeHigh = ref(0)
+const activeCritical = ref(0)
 
 const successCount = computed(() => tasks.value.filter(t => t.status === 'SUCCESS').length)
 const failedCount = computed(() => tasks.value.filter(t => t.status === 'FAILED').length)
@@ -163,12 +164,15 @@ onMounted(async () => {
     repos.value = await api.repos()
     const taskPage: any = await api.tasks({ page_size: 8 })
     tasks.value = taskPage.items || []
-    const issuePage: any = await api.issues({ page_size: 100 })
+    const issuePage: any = await api.issues({ page_size: 1000 })
+    const issues = issuePage.items || []
     const today = new Date().toISOString().slice(0, 10)
     todayTasks.value = tasks.value.filter(t => (t.created_at || '').startsWith(today)).length
-    todayIssues.value = (issuePage.items || []).filter((i: any) => (i.created_at || '').startsWith(today)).length
-    high.value = (issuePage.items || []).filter((i: any) => i.issue_level === 'HIGH').length
-    critical.value = (issuePage.items || []).filter((i: any) => i.issue_level === 'CRITICAL').length
+    todayIssues.value = issues.filter((i: any) => (i.created_at || '').startsWith(today)).length
+    const active = issues.filter((i: any) => !['FIXED', 'FALSE_POSITIVE', 'IGNORED'].includes(i.status || 'TODO'))
+    activeIssues.value = active.length
+    activeHigh.value = active.filter((i: any) => i.issue_level === 'HIGH').length
+    activeCritical.value = active.filter((i: any) => i.issue_level === 'CRITICAL').length
   } finally {
     loading.value = false
   }
