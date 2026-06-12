@@ -68,6 +68,8 @@ pub struct GraphCommit {
     pub graph: String,
     pub commit_id: String,
     pub short_id: String,
+    pub parent_count: usize,
+    pub is_merge: bool,
     pub author_name: String,
     pub author_email: String,
     pub commit_time: String,
@@ -109,7 +111,7 @@ pub async fn log_graph(git_path: &str, repo_path: &Path, branch: &str, limit: us
     let reference = format!("refs/heads/{branch}");
     let out = run_git(
         git_path,
-        &["log", "--graph", "--date=iso-strict", "--pretty=format:%H%x1f%h%x1f%an%x1f%ae%x1f%ad%x1f%s", &max_count, &reference],
+        &["log", "--graph", "--date=iso-strict", "--pretty=format:%H%x1f%h%x1f%P%x1f%an%x1f%ae%x1f%ad%x1f%s", &max_count, &reference],
         Some(repo_path),
         timeout_seconds,
     ).await?;
@@ -121,16 +123,24 @@ fn parse_graph_commit_line(line: &str) -> Option<GraphCommit> {
     let graph = line[..hash_start].to_string();
     let rest = &line[hash_start..];
     let parts: Vec<&str> = rest.split('\x1f').collect();
-    if parts.len() < 6 { return None; }
+    if parts.len() < 7 { return None; }
+    let parent_count = parts[2].split_whitespace().count();
     Some(GraphCommit {
         graph,
         commit_id: parts[0].to_string(),
         short_id: parts[1].to_string(),
-        author_name: parts[2].to_string(),
-        author_email: parts[3].to_string(),
-        commit_time: parts[4].to_string(),
-        subject: parts[5].to_string(),
+        parent_count,
+        is_merge: parent_count > 1,
+        author_name: parts[3].to_string(),
+        author_email: parts[4].to_string(),
+        commit_time: parts[5].to_string(),
+        subject: parts[6].to_string(),
     })
+}
+
+pub async fn parent_count(git_path: &str, repo_path: &Path, commit: &str, timeout_seconds: u64) -> AppResult<usize> {
+    let out = run_git(git_path, &["rev-list", "--parents", "-n", "1", commit], Some(repo_path), timeout_seconds).await?;
+    Ok(out.stdout.split_whitespace().skip(1).count())
 }
 
 pub async fn first_parent(git_path: &str, repo_path: &Path, commit: &str, timeout_seconds: u64) -> AppResult<Option<String>> {

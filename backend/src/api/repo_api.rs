@@ -115,6 +115,10 @@ pub async fn scan_commit(
     let repo = get_repo(&state, &id).await?;
     ensure_synced(&repo)?;
     let repo_path = mirror::repo_local_path(&state.config, &repo);
+    let parent_count = command::parent_count(&state.config.git.command_path, &repo_path, &commit_id, state.config.scanner.git_command_timeout_seconds).await?;
+    if parent_count > 1 {
+        return Err(AppError::BadRequest("Merge commit 不需要单独扫描，请扫描具体业务提交".into()));
+    }
     let parent = command::first_parent(&state.config.git.command_path, &repo_path, &commit_id, state.config.scanner.git_command_timeout_seconds).await?
         .ok_or_else(|| AppError::BadRequest("根提交没有父提交，V1 暂不支持直接审核根提交".into()))?;
     let branch_name = input.branch.unwrap_or_else(|| "manual".to_string());

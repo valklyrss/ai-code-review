@@ -24,6 +24,7 @@
           <div class="commit-tree">
             <span class="graph">{{ row.graph }}</span>
             <code>{{ row.short_id }}</code>
+            <el-tag v-if="row.is_merge" size="small" type="info">MERGE</el-tag>
             <span class="subject">{{ row.subject }}</span>
           </div>
         </template>
@@ -55,7 +56,9 @@
       </el-table-column>
       <el-table-column label="操作" width="120">
         <template #default="{ row }">
-          <el-button size="small" type="primary" @click="scanCommit(row)">扫描</el-button>
+          <el-button size="small" type="primary" :disabled="row.is_merge" @click="scanCommit(row)">
+            {{ row.is_merge ? '跳过' : '扫描' }}
+          </el-button>
         </template>
       </el-table-column>
     </el-table>
@@ -78,6 +81,8 @@ interface GraphCommit {
   graph: string
   commit_id: string
   short_id: string
+  parent_count: number
+  is_merge: boolean
   author_name: string
   author_email: string
   commit_time: string
