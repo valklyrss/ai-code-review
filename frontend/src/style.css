@@ -1,0 +1,13 @@
+html, body, #app { height: 100%; margin: 0; }
+body { font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #f6f7fb; }
+.layout { min-height: 100%; }
+.aside { background: #fff; border-right: 1px solid #e5e7eb; }
+.brand { height: 56px; display: flex; align-items: center; padding: 0 18px; font-weight: 700; color: #1f2937; }
+.page-title { margin: 0 0 16px; font-size: 22px; color: #111827; }
+.toolbar { display: flex; gap: 12px; align-items: center; margin-bottom: 16px; flex-wrap: wrap; }
+.panel { background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 16px; }
+.stats { display: grid; grid-template-columns: repeat(5, minmax(140px, 1fr)); gap: 12px; margin-bottom: 16px; }
+.stat { background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 16px; }
+.stat b { display: block; font-size: 26px; margin-top: 8px; }
+@media (max-width: 900px) { .aside { width: 170px !important; } .stats { grid-template-columns: repeat(2, 1fr); } }
+

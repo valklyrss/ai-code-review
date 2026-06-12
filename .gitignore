@@ -1,0 +1,10 @@
+backend/target/
+backend/config.yaml
+backend/static/*
+!backend/static/.gitkeep
+data/ai-review.db
+data/repos/
+frontend/node_modules/
+frontend/dist/
+.env
+*.log
