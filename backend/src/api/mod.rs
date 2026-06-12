@@ -1,6 +1,7 @@
 pub mod ai_api;
 pub mod issue_api;
 pub mod repo_api;
+pub mod settings_api;
 pub mod system_api;
 pub mod task_api;
 
@@ -29,6 +30,10 @@ pub fn routes(state: AppState) -> Router {
         .route("/api/issues", get(issue_api::list_issues))
         .route("/api/issues/:id/status", axum::routing::put(issue_api::update_status))
         .route("/api/ai/settings", get(ai_api::get_setting).put(ai_api::save_setting))
+        .route("/api/settings", get(settings_api::get_settings))
+        .route("/api/settings/scanner", axum::routing::put(settings_api::save_scanner))
+        .route("/api/settings/mail", axum::routing::put(settings_api::save_mail))
+        .route("/api/settings/review", axum::routing::put(settings_api::save_review))
         .route("/api/system/health", get(system_api::health))
         .route("/api/system/config-summary", get(system_api::config_summary))
         .with_state(state)

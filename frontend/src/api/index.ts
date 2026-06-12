@@ -48,6 +48,10 @@ export const api = {
   updateIssueStatus: (id: string, status: string) => http.put(`/issues/${id}/status`, { status }),
   aiSettings: () => http.get('/ai/settings'),
   saveAiSettings: (data: any) => http.put('/ai/settings', data),
+  settings: () => http.get('/settings'),
+  saveScannerSettings: (data: any) => http.put('/settings/scanner', data),
+  saveMailSettings: (data: any) => http.put('/settings/mail', data),
+  saveReviewSettings: (data: any) => http.put('/settings/review', data),
   health: () => http.get('/system/health'),
   configSummary: () => http.get('/system/config-summary')
 }

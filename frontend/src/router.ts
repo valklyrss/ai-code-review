@@ -6,6 +6,7 @@ import TaskList from './views/TaskList.vue'
 import TaskDetail from './views/TaskDetail.vue'
 import IssueList from './views/IssueList.vue'
 import AiSettings from './views/AiSettings.vue'
+import SystemSettings from './views/SystemSettings.vue'
 
 export default createRouter({
   history: createWebHistory(),
@@ -16,6 +17,7 @@ export default createRouter({
     { path: '/tasks', component: TaskList },
     { path: '/tasks/:id', component: TaskDetail },
     { path: '/issues', component: IssueList },
-    { path: '/settings/ai', component: AiSettings }
+    { path: '/settings/ai', component: AiSettings },
+    { path: '/settings/system', component: SystemSettings }
   ]
 })

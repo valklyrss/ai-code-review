@@ -1,4 +1,4 @@
-use crate::{api::AppState, error::AppResult, gitx::{command::ls_remote_heads, mirror}, model::repo::RepoConfig, util::time::now};
+use crate::{api::{settings_api, AppState}, error::AppResult, gitx::{command::ls_remote_heads, mirror}, model::repo::RepoConfig, util::time::now};
 use sqlx::Row;
 use tokio::time::{sleep, Duration};
 use uuid::Uuid;
@@ -6,10 +6,13 @@ use uuid::Uuid;
 pub fn start(state: AppState) {
     tokio::spawn(async move {
         loop {
-            if let Err(e) = scan_all(&state).await {
-                tracing::error!("scanner failed: {e}");
-            }
-            sleep(Duration::from_secs(state.config.scanner.interval_seconds)).await;
+        if let Err(e) = scan_all(&state).await {
+            tracing::error!("scanner failed: {e}");
+        }
+            let interval = settings_api::get_scanner_setting(&state).await
+                .map(|s| s.interval_seconds.max(5) as u64)
+                .unwrap_or(state.config.scanner.interval_seconds);
+            sleep(Duration::from_secs(interval)).await;
         }
     });
 }
@@ -27,7 +30,9 @@ pub async fn scan_all(state: &AppState) -> AppResult<()> {
 
 pub async fn scan_repo(state: &AppState, repo: &RepoConfig) -> AppResult<()> {
     tracing::info!(repo_id=%repo.id, repo_name=%repo.repo_name, "scanning repository remote heads");
-    let branches = ls_remote_heads(&state.config.git.command_path, &repo.repo_url, state.config.scanner.git_command_timeout_seconds).await?;
+    let scanner = settings_api::get_scanner_setting(state).await?;
+    let timeout = scanner.git_command_timeout_seconds.max(5) as u64;
+    let branches = ls_remote_heads(&state.config.git.command_path, &repo.repo_url, timeout).await?;
     let repo_path = mirror::ensure_mirror_repo(&state.config, repo).await?;
     mirror::fetch_mirror_repo(&state.config, &repo_path).await?;
     tracing::info!(repo_id=%repo.id, branch_count=branches.len(), "remote heads loaded");

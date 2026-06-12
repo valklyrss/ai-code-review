@@ -5,17 +5,12 @@ server:
 database:
   url: "sqlite:../data/ai-review.db"
 
-scanner:
-  interval_seconds: 60
-  max_concurrent_tasks: 1
-  max_diff_lines: 3000
-  max_file_diff_lines: 800
-  git_command_timeout_seconds: 120
-
 git:
   command_path: "git"
   repo_base_dir: "../data/repos"
 
+# 首次启动时用于初始化“AI 设置”的默认值。
+# 后续请在页面：AI 设置 中维护。
 ai:
   provider: "openai-compatible"
   base_url: "https://api.deepseek.com/v1"
@@ -24,51 +19,4 @@ ai:
   timeout_seconds: 120
   temperature: 0.2
   max_tokens: 4096
-
-mail:
-  enabled: false
-  smtp_host: ""
-  smtp_port: 465
-  username: ""
-  password: ""
-  from: "AI代码审核 <ai-review@example.com>"
-  use_tls: true
-
-review:
-  default_prompt_name: "java_legacy"
-  serious_levels:
-    - "HIGH"
-    - "CRITICAL"
-  allowed_extensions:
-    - ".java"
-    - ".xml"
-    - ".jsp"
-    - ".js"
-    - ".ts"
-    - ".vue"
-    - ".sql"
-    - ".properties"
-    - ".yml"
-    - ".yaml"
-  ignore_paths:
-    - "target/"
-    - "dist/"
-    - "node_modules/"
-    - ".git/"
-    - "build/"
-    - ".idea/"
-  ignore_extensions:
-    - ".class"
-    - ".jar"
-    - ".war"
-    - ".png"
-    - ".jpg"
-    - ".jpeg"
-    - ".gif"
-    - ".pdf"
-    - ".xlsx"
-    - ".docx"
-    - ".min.js"
-    - ".map"
-    - ".lock"
 

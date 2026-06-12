@@ -19,8 +19,8 @@ pub trait AiReviewer: Send + Sync {
 
 #[derive(Clone)]
 pub struct OpenAiCompatibleClient {
-    cfg: AppConfig,
     ai: EffectiveAiConfig,
+    prompt_name: String,
     http: Client,
 }
 
@@ -46,6 +46,7 @@ impl OpenAiCompatibleClient {
                 temperature: cfg.ai.temperature,
                 max_tokens: cfg.ai.max_tokens,
             },
+            cfg.review.default_prompt_name.clone(),
         )
     }
 
@@ -63,6 +64,10 @@ impl OpenAiCompatibleClient {
                 ai_model = %setting.model,
                 "using database AI setting"
             );
+            let prompt_name = sqlx::query_scalar::<_, String>("SELECT default_prompt_name FROM review_setting WHERE id='default'")
+                .fetch_optional(pool)
+                .await?
+                .unwrap_or_else(|| cfg.review.default_prompt_name.clone());
             return Self::with_ai(
                 cfg,
                 EffectiveAiConfig {
@@ -73,6 +78,7 @@ impl OpenAiCompatibleClient {
                     temperature: setting.temperature as f32,
                     max_tokens: setting.max_tokens.max(1) as u32,
                 },
+                prompt_name,
             );
         }
 
@@ -80,12 +86,12 @@ impl OpenAiCompatibleClient {
         Self::new(cfg)
     }
 
-    fn with_ai(cfg: AppConfig, ai: EffectiveAiConfig) -> AppResult<Self> {
+    fn with_ai(_cfg: AppConfig, ai: EffectiveAiConfig, prompt_name: String) -> AppResult<Self> {
         let http = Client::builder()
             .timeout(Duration::from_secs(ai.timeout_seconds))
             .build()
             .map_err(|e| AppError::Ai(format!("failed to build ai http client: {e}")))?;
-        Ok(Self { cfg, ai, http })
+        Ok(Self { ai, prompt_name, http })
     }
 }
 
@@ -103,7 +109,7 @@ impl AiReviewer for OpenAiCompatibleClient {
         let body = json!({
             "model": self.ai.model,
             "messages": [
-                {"role": "system", "content": prompt::system_prompt(&self.cfg.review.default_prompt_name)},
+                {"role": "system", "content": prompt::system_prompt(&self.prompt_name)},
                 {"role": "user", "content": prompt::user_prompt(file_path, diff_content)}
             ],
             "temperature": self.ai.temperature,
@@ -131,4 +137,3 @@ impl AiReviewer for OpenAiCompatibleClient {
         })
     }
 }
-

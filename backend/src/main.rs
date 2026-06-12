@@ -28,6 +28,7 @@ async fn main() -> anyhow::Result<()> {
     let pool = db::connect(&config.database.url).await?;
     let state = AppState { config: config.clone(), db: pool };
     api::ai_api::seed_from_config(&state).await?;
+    api::settings_api::seed_from_config(&state).await?;
 
     scanner::scheduler::start(state.clone());
     scanner::worker::start(state.clone());

@@ -8,6 +8,7 @@
         <el-menu-item index="/tasks">审核任务</el-menu-item>
         <el-menu-item index="/issues">问题清单</el-menu-item>
         <el-menu-item index="/settings/ai">AI 设置</el-menu-item>
+        <el-menu-item index="/settings/system">系统设置</el-menu-item>
       </el-menu>
     </el-aside>
     <el-main>
@@ -15,4 +16,3 @@
     </el-main>
   </el-container>
 </template>
-

@@ -1,5 +1,5 @@
 use crate::{
-    api::AppState,
+    api::{settings_api, AppState},
     error::{AppError, AppResult},
     gitx::{command, mirror},
     mail,
@@ -11,18 +11,23 @@ use tokio::time::{sleep, Duration};
 use uuid::Uuid;
 
 pub fn start(state: AppState) {
-    let workers = state.config.scanner.max_concurrent_tasks.max(1);
-    for _ in 0..workers {
-        let s = state.clone();
-        tokio::spawn(async move {
-            loop {
-                if let Err(e) = run_once(&s).await {
-                    tracing::error!("worker tick failed: {e}");
+    tokio::spawn(async move {
+        let workers = settings_api::get_scanner_setting(&state).await
+            .map(|s| s.max_concurrent_tasks.max(1) as usize)
+            .unwrap_or(state.config.scanner.max_concurrent_tasks.max(1));
+        tracing::info!(workers, "starting review workers");
+        for _ in 0..workers {
+            let s = state.clone();
+            tokio::spawn(async move {
+                loop {
+                    if let Err(e) = run_once(&s).await {
+                        tracing::error!("worker tick failed: {e}");
+                    }
+                    sleep(Duration::from_secs(5)).await;
                 }
-                sleep(Duration::from_secs(5)).await;
-            }
-        });
-    }
+            });
+        }
+    });
 }
 
 pub async fn run_once(state: &AppState) -> AppResult<()> {
@@ -40,6 +45,9 @@ pub async fn run_once(state: &AppState) -> AppResult<()> {
 
 pub async fn execute_task(state: &AppState, task: &ReviewTask) -> AppResult<()> {
     let started = now();
+    let scanner = settings_api::get_scanner_setting(state).await?;
+    let review_setting = settings_api::get_review_setting(state).await?;
+    let timeout = scanner.git_command_timeout_seconds.max(5) as u64;
     sqlx::query("UPDATE review_task SET status='RUNNING',started_at=? WHERE id=?").bind(&started).bind(&task.id).execute(&state.db).await?;
     let repo = sqlx::query_as::<_, RepoConfig>("SELECT * FROM repo_config WHERE id=?").bind(&task.repo_id).fetch_one(&state.db).await?;
     let repo_path = mirror::ensure_mirror_repo(&state.config, &repo).await?;
@@ -48,18 +56,18 @@ pub async fn execute_task(state: &AppState, task: &ReviewTask) -> AppResult<()> 
     let old_commit = task.old_commit_id.clone().ok_or_else(|| AppError::Other("task old_commit_id is empty".into()))?;
     let mut base = old_commit.clone();
     let mut note = None;
-    if !command::is_ancestor(&state.config.git.command_path, &repo_path, &old_commit, &task.new_commit_id, state.config.scanner.git_command_timeout_seconds).await? {
-        base = command::merge_base(&state.config.git.command_path, &repo_path, &old_commit, &task.new_commit_id, state.config.scanner.git_command_timeout_seconds).await?;
+    if !command::is_ancestor(&state.config.git.command_path, &repo_path, &old_commit, &task.new_commit_id, timeout).await? {
+        base = command::merge_base(&state.config.git.command_path, &repo_path, &old_commit, &task.new_commit_id, timeout).await?;
         note = Some(format!("detected force push, using merge-base {base}"));
     }
 
-    let commits = command::log_between(&state.config.git.command_path, &repo_path, &base, &task.new_commit_id, state.config.scanner.git_command_timeout_seconds).await?;
+    let commits = command::log_between(&state.config.git.command_path, &repo_path, &base, &task.new_commit_id, timeout).await?;
     for c in &commits {
         sqlx::query("INSERT INTO review_commit(id,task_id,commit_id,author_name,author_email,commit_msg,commit_time) VALUES(?,?,?,?,?,?,?)")
             .bind(Uuid::new_v4().to_string()).bind(&task.id).bind(&c.commit_id).bind(&c.author_name).bind(&c.author_email).bind(&c.commit_msg).bind(&c.commit_time).execute(&state.db).await?;
     }
 
-    let files = command::diff_name_status(&state.config.git.command_path, &repo_path, &base, &task.new_commit_id, state.config.scanner.git_command_timeout_seconds).await?;
+    let files = command::diff_name_status(&state.config.git.command_path, &repo_path, &base, &task.new_commit_id, timeout).await?;
     let ai = OpenAiCompatibleClient::from_db(&state.db, state.config.clone()).await?;
     let mut total_diff_lines = 0usize;
     let mut issue_count = 0i64;
@@ -68,17 +76,17 @@ pub async fn execute_task(state: &AppState, task: &ReviewTask) -> AppResult<()> 
     let mut worst = "INFO".to_string();
 
     for (change_type, file_path) in files.iter() {
-        let (skip, reason) = should_skip(state, file_path);
+        let (skip, reason) = should_skip(&review_setting, file_path);
         let mut diff = String::new();
         let mut skipped = skip;
         let mut skip_reason = reason;
         if !skipped {
-            diff = command::diff_file(&state.config.git.command_path, &repo_path, &base, &task.new_commit_id, file_path, state.config.scanner.git_command_timeout_seconds).await?;
+            diff = command::diff_file(&state.config.git.command_path, &repo_path, &base, &task.new_commit_id, file_path, timeout).await?;
             let lines = diff.lines().count();
-            if lines > state.config.scanner.max_file_diff_lines {
+            if lines > scanner.max_file_diff_lines.max(1) as usize {
                 skipped = true;
                 skip_reason = Some("DIFF_TOO_LARGE".into());
-            } else if total_diff_lines + lines > state.config.scanner.max_diff_lines {
+            } else if total_diff_lines + lines > scanner.max_diff_lines.max(1) as usize {
                 skipped = true;
                 skip_reason = Some("TASK_DIFF_TOO_LARGE".into());
             } else {
@@ -115,7 +123,8 @@ pub async fn execute_task(state: &AppState, task: &ReviewTask) -> AppResult<()> 
         let updated = sqlx::query_as::<_, ReviewTask>("SELECT * FROM review_task WHERE id=?").bind(&task.id).fetch_one(&state.db).await?;
         let db_commits = sqlx::query_as::<_, ReviewCommit>("SELECT * FROM review_commit WHERE task_id=?").bind(&task.id).fetch_all(&state.db).await?;
         let issues = sqlx::query_as::<_, ReviewIssue>("SELECT * FROM review_issue WHERE task_id=? AND issue_level IN ('HIGH','CRITICAL')").bind(&task.id).fetch_all(&state.db).await?;
-        match mail::send_alert(&state.config, &updated, &db_commits, &issues, repo.owner_email.as_deref()).await {
+        let mail_setting = settings_api::get_mail_setting(state).await?;
+        match mail::send_alert(&state.config, &mail_setting, &updated, &db_commits, &issues, repo.owner_email.as_deref()).await {
             Ok(true) => { sqlx::query("UPDATE review_task SET email_sent=1 WHERE id=?").bind(&task.id).execute(&state.db).await?; }
             Ok(false) => {}
             Err(e) => tracing::error!("send alert email failed: {e}"),
@@ -124,14 +133,14 @@ pub async fn execute_task(state: &AppState, task: &ReviewTask) -> AppResult<()> 
     Ok(())
 }
 
-fn should_skip(state: &AppState, path: &str) -> (bool, Option<String>) {
-    if state.config.review.ignore_paths.iter().any(|p| path.contains(p)) {
+fn should_skip(setting: &crate::model::settings::ReviewSetting, path: &str) -> (bool, Option<String>) {
+    if setting.ignore_paths.iter().any(|p| path.contains(p)) {
         return (true, Some("IGNORE_PATH".into()));
     }
-    if state.config.review.ignore_extensions.iter().any(|e| path.ends_with(e)) {
+    if setting.ignore_extensions.iter().any(|e| path.ends_with(e)) {
         return (true, Some("IGNORE_EXTENSION".into()));
     }
-    if !state.config.review.allowed_extensions.iter().any(|e| path.ends_with(e)) {
+    if !setting.allowed_extensions.iter().any(|e| path.ends_with(e)) {
         return (true, Some("EXTENSION_NOT_ALLOWED".into()));
     }
     (false, None)

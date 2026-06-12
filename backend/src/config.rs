@@ -6,10 +6,13 @@ use std::{env, fs, path::Path};
 pub struct AppConfig {
     pub server: ServerConfig,
     pub database: DatabaseConfig,
+    #[serde(default)]
     pub scanner: ScannerConfig,
     pub git: GitConfig,
     pub ai: AiConfig,
+    #[serde(default)]
     pub mail: MailConfig,
+    #[serde(default)]
     pub review: ReviewConfig,
 }
 
@@ -24,6 +27,17 @@ pub struct ScannerConfig {
     pub max_diff_lines: usize,
     pub max_file_diff_lines: usize,
     pub git_command_timeout_seconds: u64,
+}
+impl Default for ScannerConfig {
+    fn default() -> Self {
+        Self {
+            interval_seconds: 60,
+            max_concurrent_tasks: 1,
+            max_diff_lines: 3000,
+            max_file_diff_lines: 800,
+            git_command_timeout_seconds: 120,
+        }
+    }
 }
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct GitConfig { pub command_path: String, pub repo_base_dir: String }
@@ -47,6 +61,19 @@ pub struct MailConfig {
     pub from: String,
     pub use_tls: bool,
 }
+impl Default for MailConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            smtp_host: String::new(),
+            smtp_port: 465,
+            username: String::new(),
+            password: String::new(),
+            from: "AI代码审核 <ai-review@example.com>".to_string(),
+            use_tls: true,
+        }
+    }
+}
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct ReviewConfig {
     pub default_prompt_name: String,
@@ -54,6 +81,22 @@ pub struct ReviewConfig {
     pub allowed_extensions: Vec<String>,
     pub ignore_paths: Vec<String>,
     pub ignore_extensions: Vec<String>,
+}
+impl Default for ReviewConfig {
+    fn default() -> Self {
+        Self {
+            default_prompt_name: "java_legacy".to_string(),
+            serious_levels: vec!["HIGH".to_string(), "CRITICAL".to_string()],
+            allowed_extensions: vec![
+                ".java", ".xml", ".jsp", ".js", ".ts", ".vue", ".sql", ".properties", ".yml", ".yaml",
+            ].into_iter().map(str::to_string).collect(),
+            ignore_paths: vec!["target/", "dist/", "node_modules/", ".git/", "build/", ".idea/"]
+                .into_iter().map(str::to_string).collect(),
+            ignore_extensions: vec![
+                ".class", ".jar", ".war", ".png", ".jpg", ".jpeg", ".gif", ".pdf", ".xlsx", ".docx", ".min.js", ".map", ".lock",
+            ].into_iter().map(str::to_string).collect(),
+        }
+    }
 }
 
 impl AppConfig {
