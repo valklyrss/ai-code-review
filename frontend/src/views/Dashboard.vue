@@ -40,12 +40,12 @@
         <strong>{{ todayIssues }}</strong>
         <em>今天扫描发现</em>
       </div>
-      <div class="metric-card red clickable" @click="$router.push('/issues?status=TODO')">
+      <div class="metric-card red clickable" @click="$router.push('/issues?active=true')">
         <span>当前待处理</span>
         <strong>{{ activeIssues }}</strong>
         <em>排除已修复、误报、忽略</em>
       </div>
-      <div class="metric-card blue clickable" @click="$router.push('/issues?level=CRITICAL')">
+      <div class="metric-card blue clickable" @click="$router.push('/issues?serious=true&active=true')">
         <span>HIGH+ 待处理</span>
         <strong>{{ activeHigh + activeCritical }}</strong>
         <em>需要优先确认</em>

@@ -34,6 +34,9 @@ onMounted(() => {
   if (route.query.level) filters.level = route.query.level
   if (route.query.status) filters.status = route.query.status
   if (route.query.repo_id) filters.repo_id = route.query.repo_id
+  if (route.query.active) filters.active = route.query.active
+  if (route.query.serious) filters.serious = route.query.serious
+  if (route.query.date) filters.date = route.query.date
   load()
 })
 </script>
