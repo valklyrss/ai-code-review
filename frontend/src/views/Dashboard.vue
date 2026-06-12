@@ -115,7 +115,7 @@
         </div>
         <el-button @click="$router.push('/tasks')">全部任务</el-button>
       </div>
-      <el-table :data="tasks" v-loading="loading">
+      <el-table :data="tasks" v-loading="loading" class="clickable-table" @row-click="openTask">
         <el-table-column label="创建时间" min-width="150">
           <template #default="{ row }">{{ formatTime(row.created_at) }}</template>
         </el-table-column>
@@ -135,12 +135,14 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { api, Repo } from '../api'
 import StatusTag from '../components/StatusTag.vue'
 import RiskTag from '../components/RiskTag.vue'
 import { formatTime } from '../utils/time'
 
 const repos = ref<Repo[]>([])
+const router = useRouter()
 const tasks = ref<any[]>([])
 const loading = ref(false)
 const todayTasks = ref(0)
@@ -156,6 +158,10 @@ const maxTaskBucket = computed(() => Math.max(successCount.value, failedCount.va
 
 function barWidth(value: number) {
   return `${Math.max(10, Math.round((value / maxTaskBucket.value) * 100))}%`
+}
+
+function openTask(row: any) {
+  if (row?.id) router.push(`/tasks/${row.id}`)
 }
 
 onMounted(async () => {
@@ -500,6 +506,14 @@ onMounted(async () => {
 
 .task-panel {
   margin-bottom: 12px;
+}
+
+:deep(.clickable-table .el-table__row) {
+  cursor: pointer;
+}
+
+:deep(.clickable-table .el-table__row:hover td) {
+  background: rgba(18, 184, 200, 0.08) !important;
 }
 
 @keyframes radarSpin {
